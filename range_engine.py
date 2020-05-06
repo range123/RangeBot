@@ -82,13 +82,16 @@ class RangeEngine(EngineWrapper):
         # return self.get_handler_stats(self.engine.info_handlers[0].info, ["depth", "nps", "nodes", "score"])
         return 'get_stats'
 
+    def eval(self):
+        return self.material_eval()
     def material_eval(self):
+        # TODO need to give higher eval for less pieces
         board = self.board
         b,w = 0,0
         for i in range(1,6):
             w+=len(board.pieces(i,chess.WHITE))*material[i]
             b-=len(board.pieces(i,chess.BLACK))*material[i]
-        return w+b
+        return (w+b)*(32/len(board.piece_map()))
 
     def alphabeta(self,alpha,beta,ismax,depth):
         board = self.board
@@ -96,16 +99,15 @@ class RangeEngine(EngineWrapper):
         # moves = self.order_moves()
 
         # if there are no legal moves, check for checkmate / stalemate
-        if not moves:
-            if self.board.is_checkmate():
-                if self.board.result() == "1-0":
-                    return 1000000,chess.Move.from_uci('e4e5')
-                elif self.board.result() == "0-1":
-                    return -1000000,chess.Move.from_uci('e4e5')
-            else:
-                return 0,chess.Move.from_uci('e4e5')
+        if board.is_checkmate():
+            if board.result() == "1-0":
+                return 1000000,chess.Move.from_uci('e4e5')
+            elif board.result() == "0-1":
+                return -1000000,chess.Move.from_uci('e4e5')
+        elif board.can_claim_draw():
+            return 0,chess.Move.from_uci('e4e5')
         if depth <= 0:
-            return self.material_eval(),chess.Move.from_uci('e4e5')
+            return self.eval(),chess.Move.from_uci('e4e5')
         if ismax:
             best = -self.inf
             bmove = None
@@ -137,9 +139,11 @@ class RangeEngine(EngineWrapper):
 
 
 if __name__ == '__main__':
-    fen = input()
-    board = chess.Board(fen)    
-    engine = RangeEngine(board,None,None)
+    # fen = input()
+    board = chess.Board()    
+    # engine = RangeEngine(board,None,None)
     # print(engine.alphabeta(-engine.inf-1,engine.inf+1,board.turn,2))
-    print(engine.material_eval())
+    # print(engine.material_eval())
+    
+    print(len(board.piece_map()))
     

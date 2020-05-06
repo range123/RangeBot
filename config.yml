@@ -7,7 +7,7 @@ engine:                      # engine settings
   protocol: "uci"            # "uci" or "xboard"
   uci_ponder: false           # think on opponent time; only works if "protocol" is "uci"
   polyglot:
-    enabled: false           # activate polyglot book
+    enabled: true           # activate polyglot book
     book:
       standard: "engines/book.bin" # book file path of standard chess
 #      atomic: "atomic book path"
