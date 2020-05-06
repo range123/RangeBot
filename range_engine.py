@@ -52,7 +52,7 @@ class RangeEngine(EngineWrapper):
         self.engine = Dummy()
         self.board = board
         self.inf = pow(10,8)
-        self.depth = 5
+        self.depth = 4
     def first_search(self, board, movetime):
         # return random.choice(list(board.legal_moves))
         return self.alphabeta(-self.inf-1,self.inf+1,self.board.turn,self.depth)[1]
@@ -85,7 +85,7 @@ class RangeEngine(EngineWrapper):
     def material_eval(self):
         board = self.board
         b,w = 0,0
-        for i in range(1,5):
+        for i in range(1,6):
             w+=len(board.pieces(i,chess.WHITE))*material[i]
             b-=len(board.pieces(i,chess.BLACK))*material[i]
         return w+b
@@ -137,8 +137,9 @@ class RangeEngine(EngineWrapper):
 
 
 if __name__ == '__main__':
-    # fen = input()
-    board = chess.Board('r1bqkbnr/ppp2ppp/2np4/4p3/2B1P3/5Q2/PPPP1PPP/RNB1K1NR w KQkq - 2 4')    
+    fen = input()
+    board = chess.Board(fen)    
     engine = RangeEngine(board,None,None)
-    print(engine.alphabeta(-engine.inf-1,engine.inf+1,board.turn,2))
+    # print(engine.alphabeta(-engine.inf-1,engine.inf+1,board.turn,2))
+    print(engine.material_eval())
     
