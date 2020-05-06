@@ -4,7 +4,8 @@ import chess.xboard
 import chess.uci
 import backoff
 import subprocess
-
+import random
+from range_engine import RangeEngine
 @backoff.on_exception(backoff.expo, BaseException, max_time=120)
 def create_engine(config, board):
     cfg = config["engine"]
@@ -21,7 +22,8 @@ def create_engine(config, board):
     if engine_type == "xboard":
         return XBoardEngine(board, commands, cfg.get("xboard_options", {}) or {}, silence_stderr)
 
-    return UCIEngine(board, commands, cfg.get("uci_options", {}) or {}, silence_stderr)
+    # return UCIEngine(board, commands, cfg.get("uci_options", {}) or {}, silence_stderr)
+    return RangeEngine(board, commands, cfg.get("uci_options", {}) or {}, silence_stderr)
 
 
 class EngineWrapper:
@@ -59,6 +61,7 @@ class EngineWrapper:
                 stats_str.append("{}: {}".format(stat, info[stat]))
 
         return stats_str
+
 
 
 class UCIEngine(EngineWrapper):
