@@ -53,6 +53,8 @@ class RangeEngine(EngineWrapper):
         self.board = board
         self.inf = pow(10,8)
         self.depth = 4
+        self.count = 0
+        self.map = dict()
     def first_search(self, board, movetime):
         # return random.choice(list(board.legal_moves))
         return self.alphabeta(-self.inf-1,self.inf+1,self.board.turn,self.depth)[1]
@@ -95,6 +97,7 @@ class RangeEngine(EngineWrapper):
 
     def alphabeta(self,alpha,beta,ismax,depth):
         board = self.board
+        self.count+=1
         moves = list(self.board.legal_moves)
         # moves = self.order_moves()
 
@@ -108,6 +111,8 @@ class RangeEngine(EngineWrapper):
             return 0,chess.Move.from_uci('e4e5')
         if depth <= 0:
             return self.eval(),chess.Move.from_uci('e4e5')
+        if board.board_fen() in self.map:
+            return self.map[board.board_fen()]
         if ismax:
             best = -self.inf
             bmove = None
@@ -121,6 +126,7 @@ class RangeEngine(EngineWrapper):
                 alpha = max(alpha,best)
                 if beta<=alpha:
                     break
+            self.map[board.board_fen()] = (value,bmove)
             return best,bmove
         else:
             best = self.inf
@@ -135,15 +141,27 @@ class RangeEngine(EngineWrapper):
                 beta = min(beta,best)
                 if beta<=alpha:
                     break
+            self.map[board.board_fen()] = (value,bmove)
             return best,bmove
+    def iterative_alphabeta(self,alpha,beta,ismax,depth):
+        dfs = []
+        dfs.append((self.board,alpha,beta,ismax,depth))
+        while dfs:
+            board,alpha,beta,ismax,depth = dfs.pop()
 
 
 if __name__ == '__main__':
     # fen = input()
-    board = chess.Board()    
-    # engine = RangeEngine(board,None,None)
+    fen = 'r1bqkb1r/pppp1ppp/5n2/1B2p3/3nP3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 6 5'
+    # fen2 = 'r1bqkb1r/pppp1ppp/5n2/1B2p3/3nP3/2N2N2/PPPP1PPP/R1BQK2R w KQkq - 6 5'
+    board = chess.Board(fen)    
+    # board2 = chess.Board(fen2)
+    # print(board1 == board2)
+    engine = RangeEngine(board,None,None)
+    engine.search(board,1,1,1,1)
+    print(engine.count)
     # print(engine.alphabeta(-engine.inf-1,engine.inf+1,board.turn,2))
     # print(engine.material_eval())
     
-    print(len(board.piece_map()))
+    # print(len(board.piece_map()))
     
