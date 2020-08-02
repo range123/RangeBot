@@ -1,5 +1,27 @@
 import random
 import chess,time
+import chess.syzygy as syzygy
+from NetworkTableBase import TableBase
+from types import GeneratorType
+# For making recursion iterative
+def bootstrap(f, stack=[]):
+    def wrappedfunc(*args, **kwargs):
+        if stack:
+            return f(*args, **kwargs)
+        else:
+            to = f(*args, **kwargs)
+            while True:
+                if type(to) is GeneratorType:
+                    stack.append(to)
+                    to = next(to)
+                else:
+                    stack.pop()
+                    if not stack:
+                        break
+                    to = stack[-1].send(to)
+            return to
+
+    return wrappedfunc
 class EngineWrapper:
 
     def __init__(self, board, commands, options=None, silence_stderr=False):
@@ -56,6 +78,8 @@ class RangeEngine(EngineWrapper):
         self.depth = 4
         self.count = 0
         self.piece_values = material
+        self.tb = TableBase()
+        self.table = {}
         self.square_table = square_table = {
             1: [
                 0, 0, 0, 0, 0, 0, 0, 0,
@@ -131,17 +155,23 @@ class RangeEngine(EngineWrapper):
         # return random.choice(list(board.legal_moves)),chess.Move.from_uci('e2e4')
         self.board = board.copy()
         self.count =  0
-        pieces = len(board.piece_map())
+        
         # if pieces>15:
         #     self.depth = 4
         # elif pieces<=15 and pieces>=8:
         #     self.depth = 6
-        # elif pieces<8:
-        #     self.depth = 8
         self.depth = 4
+        if len(board.piece_map()) <= 10:
+            self.depth=6
         print('searching for depth = {}'.format(self.depth))
-        result = self.alphabeta(-self.inf-1,self.inf+1,self.board.turn,self.depth)[1],None
-        # print('Nodes searched : {}, Move : {}',self.count,result[1])
+        # result = self.alphabeta(-self.inf-1,self.inf+1,self.board.turn,self.depth)[1],None
+        while True:
+            try:
+                result = self.alphabeta(-self.inf-1,self.inf+1,self.board.turn,self.depth)[1],None
+                break
+            except:
+                pass
+
         return result
 
     def search(self, board, wtime, btime, winc, binc):
@@ -149,6 +179,8 @@ class RangeEngine(EngineWrapper):
         self.board = board.copy()
         self.count =  0
         self.depth = 4
+        if len(board.piece_map()) <= 10:
+            self.depth=6
         result = self.alphabeta(-self.inf-1,self.inf+1,self.board.turn,self.depth)[1]
         # result = self.optimized_alphabeta(self.board,-self.inf-1,self.inf+1,self.board.turn,self.depth).compute()[1]
         # print('Nodes searched : {}, Move : {}',self.count,result)
@@ -174,7 +206,7 @@ class RangeEngine(EngineWrapper):
 
     def eval(self,board):
         # return self.material_eval(board)
-        return self.material_eval(board)+self.position_eval(board)/40
+        return self.material_eval(board)+self.position_eval(board)/100
     
     def position_eval(self,board):
         score = 0
@@ -200,73 +232,110 @@ class RangeEngine(EngineWrapper):
             w+=len(board.pieces(i,chess.WHITE))*material[i]
             b-=len(board.pieces(i,chess.BLACK))*material[i]
         return (w+b)*(32/len(board.piece_map()))
+
+
     def order_moves(self,board):
-        board = board.copy()
+        # board = board.copy()
         def key_func(move):
             board.push(move)
-            val =  self.eval(board)
+            val,depth =  self.table.get(hash(str(board)),(self.eval(board),0))
             board.pop()
             return val
         moves = list(board.legal_moves)
-        moves.sort(key=key_func,reverse=self.board.turn)
+        moves.sort(key=key_func,reverse=board.turn)
         return moves
+
+
+    def addtotable(self,board,val,dep):
+        h = hash(str(board))
+        if (h in self.table and self.table[h][1]<dep) or (h not in self.table):
+            self.table[h] = (val,dep)
+
+
+    @bootstrap
     def alphabeta(self,alpha,beta,ismax,depth):
         board = self.board
         self.count+=1
         moves = self.order_moves(board)
         if board.is_checkmate():
             if board.result() == "1-0":
-                return 1000000,None
+                yield 1000000,None
             elif board.result() == "0-1":
-                return -1000000,None
+                yield -1000000,None
         elif board.can_claim_draw() or len(moves) == 0:
-            return 0,None
-        cur_time = time.time()
-        # if depth <= 0 or (cur_time-self.start_time)>self.limit:
-        if depth <= 0:
-            self.depth = depth
-            return self.eval(board),None
-        if ismax:
-            best = -self.inf
-            bmove = None
-            for move in moves:
-                board.push(move)
-                value,_= self.alphabeta(alpha,beta,False,depth-1)
-                board.pop()
-                if value>best:
-                    best = value
-                    bmove=move
-                alpha = max(alpha,best)
-                if beta<=alpha:
-                    break
-            return best,bmove
+            yield 0,None
         else:
-            best = self.inf
-            bmove = None
-            for move in moves:
-                board.push(move)
-                value,_= self.alphabeta(alpha,beta,True,depth-1)
-                board.pop()
-                if value<best:
-                    best=  value
-                    bmove = move
-                beta = min(beta,best)
-                if beta<=alpha:
-                    break
-            return best,bmove
+
+            pieces = len(board.piece_map())
+            if pieces<=7 and depth == 4:
+                yield self.tb.get_eval_and_move(board.fen())
+
+
+            if depth <= 0:
+                self.depth = depth
+                # return self.eval(board),None
+                yield self.eval(board),None
+            else:
+                if ismax:
+                    best = -self.inf
+                    bmove = None
+                    for move in moves:
+                        board.push(move)
+                        value,_= yield self.alphabeta(alpha,beta,False,depth-1)
+                        board.pop()
+                        if value>best:
+                            best = value
+                            bmove=move
+                        alpha = max(alpha,best)
+                        if beta<=alpha:
+                            break
+                    self.addtotable(board,best,self.depth-depth)
+                    yield best,bmove
+                else:
+                    best = self.inf
+                    bmove = None
+                    for move in moves:
+                        board.push(move)
+                        value,_= yield self.alphabeta(alpha,beta,True,depth-1)
+                        board.pop()
+                        if value<best:
+                            best = value
+                            bmove = move
+                        beta = min(beta,best)
+                        if beta<=alpha:
+                            break
+                    self.addtotable(board,best,self.depth-depth)
+                    yield best,bmove
+
+    def probe(self,board1):
+        board = board1.copy()
+        with chess.syzygy.open_tablebase("tablebases/") as tablebase:
+            # return tablebase.probe_wdl(board)
+            return tablebase.probe_wdl(board),tablebase.probe_dtz(board)
+
 
 
 
 
 
 def main():
-    # fen = 'r1bqkb1r/pppp1ppp/5n2/1B2p3/3nP3/2N2N2/PPPP1PPP/R1BQK2R b KQkq - 6 5'
+    # fen = '8/2p1P1k1/8/1p3QNP/1P1P1B2/KP3P2/7P/5R2 w - - 1 51'
     # fen = 'r1bqr1k1/pp3pbp/5np1/2np4/5B2/2N1PN2/PP2BPPP/2RQK2R w K - 4 15'
     # fen = 'N2k1b1r/3b1ppp/5n2/4pq2/1Q6/2N5/PP2PPPP/n1BK1B1R w - - 11 21'
-    fen = 'r1b1kb1r/p3pppp/2p5/3pB3/8/2q1PN2/P1P2PPP/R2Q1RK1 b kq - 1 11'
-    board = chess.Board(fen) 
-    engine = RangeEngine(board,None,None)
-    print(engine.search_with_ponder(board,1,1,1,1)[0])
+    # fen = 'r1b1kb1r/p3pppp/2p5/3pB3/8/2q1PN2/P1P2PPP/R2Q1RK1 b kq - 1 11'
+    # fen = '6kr/8/p6p/8/8/3K4/8/8 b - - 17 70'
+    board = chess.Board()
+    board.push(chess.Move.from_uci('e2e4'))
+    board.push(chess.Move.from_uci('e7e5'))
+    print(board.move_stack)
+    # print(board)
+    # tb = TableBase()
+    # print(tb.get_eval_and_move(fen))
+    # with chess.syzygy.open_tablebase("tablebases/") as tablebase:
+    #     print(tablebase.probe_wdl(board))
+    #     print(tablebase.probe_dtz(board))
+    # engine = RangeEngine(board,None,None)
+    # move = engine.search_with_ponder(board,1,1,1,1)[0]
 
 
 if __name__ == '__main__':

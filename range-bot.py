@@ -21,6 +21,7 @@ from functools import partial
 from requests.exceptions import ChunkedEncodingError, ConnectionError, HTTPError, ReadTimeout
 from urllib3.exceptions import ProtocolError
 from ColorLogger import enable_color_logging
+from NetworkOpeningExplorer import OpeningExplorer
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +127,7 @@ def start(li, user_profile, engine_factory, config):
 
 ponder_results = {}
 
-@backoff.on_exception(backoff.expo, BaseException, max_time=600, giveup=is_final)
+# @backoff.on_exception(backoff.expo, BaseException, max_time=600, giveup=is_final)
 def play_game(li, game_id, control_queue, engine_factory, user_profile, config, challenge_queue):
     response = li.get_game_stream(game_id)
     lines = response.iter_lines()
@@ -340,6 +341,11 @@ def play_first_book_move(game, engine, board, li, config):
 
 
 def get_book_move(board, config):
+    # explorer = OpeningExplorer()
+    # move = explorer.get_random_move(board)
+    # # print(move)
+    # book = 'lichess-explorer'
+
     if board.uci_variant == "chess":
         book = config["standard"]
     else:
