@@ -1,7 +1,7 @@
 # RangeBot
 
 A Chess bot based on Alpha-beta pruning using heuristics, written in python.  
-It used a basic opening book which covers most of the common opening moves.
+Makes use  of a basic opening book which covers most of the common opening moves and
 It uses the 7-Man [syzygy endgame tablebases](https://en.wikipedia.org/wiki/Endgame_tablebase)
 
 ## Performance
